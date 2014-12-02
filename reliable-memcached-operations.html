@@ -137,7 +137,7 @@ blog post von Guido about CAS and with a possible solution to the above mentione
 problems.</p>
 <p>To interact with a memcached server we are going to use
 <a href="https://github.com/clojurewerkz/spyglass">spyglass</a>.</p>
-<p>To catch race conditions we use a the gets and cas operation within a loop:</p>
+<p>To catch race conditions we use the gets and cas operation within a loop:</p>
 <div class="highlight"><pre><span class="p">(</span><span class="nf">require</span> <span class="o">&#39;</span><span class="p">[</span><span class="nv">clojurewerkz.spyglass.client</span> <span class="ss">:as</span> <span class="nv">sc</span><span class="p">])</span>
 
 <span class="p">(</span><span class="k">def </span><span class="nv">mc-client</span> <span class="p">(</span><span class="nf">sc/bin-connection</span> <span class="s">&quot;127.0.0.1:11211&quot;</span><span class="p">))</span>
@@ -168,17 +168,17 @@ returned.
 Ok so we get the value and cas-id refered to by the key counter, define a local
 symbol for the value (incrementing the old value by one) and for the cas-id.
 Then we try to set the new counter value by using the cas operation. If it
-fails we go through the loop again, else the operation succeded and the loop
-will finish.
+fails we go through the loop again with the new counter value, else the operation
+succeded and the loop will finish.
 Note the '@' when calling sc/cas. We need to deref it because a future is
 returned and we want to compare the value not the symbol.</p>
 <p>Note that the above doesn't really avoid race conditions it only catches them
 (tells you one happend), by returning false on a cas operation, thus we have to
 retry the operation.</p>
 <p>So the above takes care of the race conditions but we have some active waiting,
-that could result in an infinite loop and thus deadlock. Furthermore on if
+that could result in an infinite loop and thus deadlock. Furthermore if
 things become very busy it could take ages for this particular thread to
-perform its operation. To avoid this we implement only retry the operation for
+perform its operation. To avoid this we only retry the operation for
 a specified amount and sleep a little bit during each retry:</p>
 <div class="highlight"><pre><span class="p">(</span><span class="k">loop </span><span class="p">[</span><span class="nv">retry</span> <span class="mi">10</span><span class="p">]</span>
   <span class="p">(</span><span class="nb">when </span><span class="p">(</span><span class="nb">pos? </span><span class="nv">retry</span><span class="p">)</span>
@@ -200,7 +200,8 @@ work.</p>
 introducing any explicit locks and even without using clojures ref, atom or
 agent. And it also works if there are multiple processes distributed among
 several hosts.</p>
-<p>Here a working example:</p>
+<p>Here a working example that uses clojures futures that try to change the
+counter at the 'same time':</p>
 <div class="highlight"><pre><span class="p">(</span><span class="nf">require</span> <span class="o">&#39;</span><span class="p">[</span><span class="nv">clojurewerkz.spyglass.client</span> <span class="ss">:as</span> <span class="nv">sc</span><span class="p">])</span>
 
 <span class="p">(</span><span class="k">def </span><span class="nv">mc-client</span> <span class="p">(</span><span class="nf">sc/bin-connection</span> <span class="s">&quot;127.0.0.1:11211&quot;</span><span class="p">))</span>
@@ -243,13 +244,13 @@ namra</p>
                 <li class="list-group-item"><a href="/"><h4><i class="fa fa-tags fa-lg"></i><span class="icon-label">Tags</span></h4></a>
                     <ul class="list-group " id="tags">
                         <li class="list-group-item tag-1">
-                            <a href="/tag/howto.html">
-                                howto
+                            <a href="/tag/linux.html">
+                                linux
                             </a>
                         </li>
                         <li class="list-group-item tag-1">
-                            <a href="/tag/linux.html">
-                                linux
+                            <a href="/tag/howto.html">
+                                howto
                             </a>
                         </li>
                         <li class="list-group-item tag-1">
@@ -258,23 +259,8 @@ namra</p>
                             </a>
                         </li>
                         <li class="list-group-item tag-4">
-                            <a href="/tag/clojure.html">
-                                clojure
-                            </a>
-                        </li>
-                        <li class="list-group-item tag-4">
-                            <a href="/tag/distributed.html">
-                                distributed
-                            </a>
-                        </li>
-                        <li class="list-group-item tag-4">
-                            <a href="/tag/api.html">
-                                api
-                            </a>
-                        </li>
-                        <li class="list-group-item tag-4">
-                            <a href="/tag/timeseries.html">
-                                timeseries
+                            <a href="/tag/soa.html">
+                                soa
                             </a>
                         </li>
                         <li class="list-group-item tag-4">
@@ -283,8 +269,8 @@ namra</p>
                             </a>
                         </li>
                         <li class="list-group-item tag-4">
-                            <a href="/tag/influxdb.html">
-                                influxdb
+                            <a href="/tag/rest.html">
+                                rest
                             </a>
                         </li>
                         <li class="list-group-item tag-4">
@@ -293,33 +279,8 @@ namra</p>
                             </a>
                         </li>
                         <li class="list-group-item tag-4">
-                            <a href="/tag/soa.html">
-                                soa
-                            </a>
-                        </li>
-                        <li class="list-group-item tag-4">
-                            <a href="/tag/cfe3.html">
-                                cfe3
-                            </a>
-                        </li>
-                        <li class="list-group-item tag-4">
                             <a href="/tag/web.html">
                                 web
-                            </a>
-                        </li>
-                        <li class="list-group-item tag-4">
-                            <a href="/tag/rest.html">
-                                rest
-                            </a>
-                        </li>
-                        <li class="list-group-item tag-4">
-                            <a href="/tag/programming.html">
-                                programming
-                            </a>
-                        </li>
-                        <li class="list-group-item tag-4">
-                            <a href="/tag/ssl.html">
-                                ssl
                             </a>
                         </li>
                         <li class="list-group-item tag-4">
@@ -328,8 +289,48 @@ namra</p>
                             </a>
                         </li>
                         <li class="list-group-item tag-4">
+                            <a href="/tag/clojure.html">
+                                clojure
+                            </a>
+                        </li>
+                        <li class="list-group-item tag-4">
+                            <a href="/tag/timeseries.html">
+                                timeseries
+                            </a>
+                        </li>
+                        <li class="list-group-item tag-4">
+                            <a href="/tag/ssl.html">
+                                ssl
+                            </a>
+                        </li>
+                        <li class="list-group-item tag-4">
+                            <a href="/tag/influxdb.html">
+                                influxdb
+                            </a>
+                        </li>
+                        <li class="list-group-item tag-4">
+                            <a href="/tag/distributed.html">
+                                distributed
+                            </a>
+                        </li>
+                        <li class="list-group-item tag-4">
+                            <a href="/tag/cfe3.html">
+                                cfe3
+                            </a>
+                        </li>
+                        <li class="list-group-item tag-4">
                             <a href="/tag/memcached.html">
                                 memcached
+                            </a>
+                        </li>
+                        <li class="list-group-item tag-4">
+                            <a href="/tag/programming.html">
+                                programming
+                            </a>
+                        </li>
+                        <li class="list-group-item tag-4">
+                            <a href="/tag/api.html">
+                                api
                             </a>
                         </li>
                     </ul>
