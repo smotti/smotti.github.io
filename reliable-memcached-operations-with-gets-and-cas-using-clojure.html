@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en"
+>
+<head>
+    <title>Reliable memcached operations with gets and cas (using clojure) - bhajana</title>
+    <!-- Using the latest rendering mode for IE -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+
+
+<link rel="canonical" href="/reliable-memcached-operations-with-gets-and-cas-using-clojure.html">
+
+        <meta name="author" content="namra" />
+        <meta name="keywords" content="clojure,memcached,distributed,howto,programming,web,rest,api,soa" />
+        <meta name="description" content="I&#39;m currently rewriting a REST-API in Clojure, that I&#39;ve previously written in Python. Because the Python implementation is horrible, due to the fact, that it was the first REST-API I&#39;ve ever wrote and also the first web app in Python with Flask. During the time I implemented ..." />
+
+    <!-- Enable latex plugin -->
+
+
+
+
+    <!-- Bootstrap -->
+        <link rel="stylesheet" href="/theme/css/bootstrap.min.css" type="text/css"/>
+    <link href="/theme/css/font-awesome.min.css" rel="stylesheet">
+
+    <link href="/theme/css/pygments/native.css" rel="stylesheet">
+    <link rel="stylesheet" href="/theme/css/style.css" type="text/css"/>
+
+
+
+
+</head>
+<body>
+
+<div class="navbar navbar-default navbar-fixed-top" role="navigation">
+    <div class="container">
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-ex1-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a href="/" class="navbar-brand">
+bhajana            </a>
+        </div>
+        <div class="collapse navbar-collapse navbar-ex1-collapse">
+            <ul class="nav navbar-nav">
+                        <li class="active">
+                            <a href="/category/home.html">Home</a>
+                        </li>
+            </ul>
+            <ul class="nav navbar-nav navbar-right">
+                <li><a href="/archives.html"><i class="fa fa-th-list"></i><span class="icon-label">Archives</span></a></li>
+            </ul>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+</div> <!-- /.navbar -->
+
+<div class="container">
+    <div class="row">
+        <div class="col-sm-9">
+
+    <section id="content">
+        <article>
+            <header class="page-header">
+                <h1>
+                    <a href="/reliable-memcached-operations-with-gets-and-cas-using-clojure.html"
+                       rel="bookmark"
+                       title="Permalink to Reliable memcached operations with gets and cas (using clojure)">
+                        Reliable memcached operations with gets and cas (using clojure)
+                    </a>
+                </h1>
+            </header>
+            <div class="entry-content">
+                <div class="panel">
+                    <div class="panel-body">
+<footer class="post-info">
+    <span class="label label-default">Date</span>
+    <span class="published">
+        <i class="fa fa-calendar"></i><time datetime="2014-12-02T17:20:00+08:00"> Tue 02 December 2014</time>
+    </span>
+
+
+
+
+
+
+<span class="label label-default">Tags</span>
+	<a href="/tag/clojure.html">clojure</a>
+        /
+	<a href="/tag/memcached.html">memcached</a>
+        /
+	<a href="/tag/distributed.html">distributed</a>
+        /
+	<a href="/tag/howto.html">howto</a>
+        /
+	<a href="/tag/programming.html">programming</a>
+        /
+	<a href="/tag/web.html">web</a>
+        /
+	<a href="/tag/rest.html">rest</a>
+        /
+	<a href="/tag/api.html">api</a>
+        /
+	<a href="/tag/soa.html">soa</a>
+    
+</footer><!-- /.post-info -->                    </div>
+                </div>
+                <p>I'm currently rewriting a REST-API in Clojure, that I've previously written in
+Python. Because the Python implementation is horrible, due to the fact,
+that it was the first REST-API I've ever wrote and also the first web app in Python
+with Flask.</p>
+<p>During the time I implemented the API in Python, some other programmer (who's
+using the API) requests a session handling feature (yea kind of not REST-like
+:/), but we have to follow the spec.
+Thus I choose memcached as session data storage due to its simplicity and
+because it's a RAM based key-value store.</p>
+<p>Now the problem is, the API is going to be a distributed service, that means
+multiple processes (actually the threads of those) on different hosts try to
+work with the session data, thus some locking mechanism needs to be implement,
+race conditions should be avoided or caught and deadlocks should be avoided
+completely.</p>
+<p>In Python I did some dirty hacking by throwing some locks into a couple of
+functions and a global lock within memcached, which is handled via the add and
+delete operations, that require quite some server roundtrips.
+Thus I wanted to improve things within the Clojure implementation. It should be
+cleaner, proof more efficient, idomatic and of course also should take good
+care of the above mentions criterias (e.g. deadlocks, ...).</p>
+<p>A visit to the #clojure channel on freenode irc led me to the memcached CAS
+operation and to
+<a href="http://neopythonic.blogspot.tw/2011/08/compare-and-set-in-memcache.html">this</a>
+blog post von Guido about CAS and with a possible solution to the above mentioned
+problems.</p>
+<p>To interact with a memcached server we are going to use
+<a href="https://github.com/clojurewerkz/spyglass">spyglass</a>.</p>
+<p>To catch race conditions we use the gets and cas operation within a loop:</p>
+<div class="highlight"><pre><span class="p">(</span><span class="nf">require</span> <span class="o">&#39;</span><span class="p">[</span><span class="nv">clojurewerkz.spyglass.client</span> <span class="ss">:as</span> <span class="nv">sc</span><span class="p">])</span>
+
+<span class="p">(</span><span class="k">def </span><span class="nv">mc-client</span> <span class="p">(</span><span class="nf">sc/bin-connection</span> <span class="s">&quot;127.0.0.1:11211&quot;</span><span class="p">))</span>
+
+<span class="p">(</span><span class="nf">sc/sets</span> <span class="nv">mc-client</span> <span class="s">&quot;counter&quot;</span> <span class="p">(</span><span class="nb">* </span><span class="mi">60</span> <span class="mi">60</span> <span class="mi">24</span><span class="p">)</span> <span class="mi">0</span><span class="p">)</span>
+
+<span class="p">(</span><span class="k">loop </span><span class="p">[]</span>
+  <span class="p">(</span><span class="k">let </span><span class="p">[</span><span class="nv">entry</span> <span class="p">(</span><span class="nf">sc/gets</span> <span class="nv">mc-client</span> <span class="s">&quot;counter&quot;</span><span class="p">)</span>
+        <span class="nv">value</span> <span class="p">(</span><span class="nb">inc </span><span class="p">(</span><span class="ss">:value</span> <span class="nv">entry</span><span class="p">))</span>
+        <span class="nv">cas-id</span> <span class="p">(</span><span class="ss">:cas</span> <span class="nv">entry</span><span class="p">)]</span>
+    <span class="c1">; You might perform some work here to calculate the new value</span>
+    <span class="p">(</span><span class="nb">when-not </span><span class="o">@</span><span class="p">(</span><span class="nf">sc/cas</span> <span class="nv">mc-client</span> <span class="s">&quot;counter&quot;</span> <span class="nv">cas-id</span> <span class="nv">value</span><span class="p">)</span>
+      <span class="p">(</span><span class="nf">recur</span><span class="p">))))</span>
+</pre></div>
+
+
+<p>First we load the spyglass client API into our namespace and set an alias "sc".
+Then we establish a connection (using the binary protocol) to a memcached host,
+in this case it's on the localhost. After that we initialize a counter with
+0 in memcached.
+Within the loop with use the gets operation to fetch the counters value and the
+cas-id. The cas-id is used by memcached internaly to track changes on records.
+This means if a record changes its cas-id changes too. This fact is used by the
+cas operation, to which you provide the cas-id, which then is compared by
+memcached to the current cas-id refered to by the given key. If they match, the
+record is updated and true is returned or else nothing is done and false is
+returned.
+Ok so we get the value and cas-id refered to by the key counter, define a local
+symbol for the value (incrementing the old value by one) and for the cas-id.
+Then we try to set the new counter value by using the cas operation. If it
+fails we go through the loop again with the new counter value, else the operation
+succeded and the loop will finish.
+Note the '@' when calling sc/cas. We need to deref it because a future is
+returned and we want to compare the value not the symbol.</p>
+<p>Note that the above doesn't really avoid race conditions it only catches them
+(tells you one happend), by returning false on a cas operation, thus we have to
+retry the operation.</p>
+<p>So the above takes care of the race conditions but we have some active waiting,
+that could result in an infinite loop and thus deadlock. Furthermore if
+things become very busy it could take ages for this particular thread to
+perform its operation. To avoid this we only retry the operation for
+a specified amount and sleep a little bit during each retry:</p>
+<div class="highlight"><pre><span class="p">(</span><span class="k">loop </span><span class="p">[</span><span class="nv">retry</span> <span class="mi">10</span><span class="p">]</span>
+  <span class="p">(</span><span class="nb">when </span><span class="p">(</span><span class="nb">pos? </span><span class="nv">retry</span><span class="p">)</span>
+    <span class="p">(</span><span class="k">let </span><span class="p">[</span><span class="nv">entry</span> <span class="p">(</span><span class="nf">sc/gets</span> <span class="nv">mc-client</span> <span class="s">&quot;counter&quot;</span><span class="p">)</span>
+          <span class="nv">value</span> <span class="p">(</span><span class="nb">inc </span><span class="p">(</span><span class="ss">:value</span> <span class="nv">entry</span><span class="p">))</span>
+          <span class="nv">cas-id</span> <span class="p">(</span><span class="ss">:cas</span> <span class="nv">entry</span><span class="p">)]</span>
+      <span class="c1">; You might perform some work here to calculate the new value</span>
+      <span class="p">(</span><span class="nb">when-not </span><span class="o">@</span><span class="p">(</span><span class="nf">sc/cas</span> <span class="nv">mc-client</span> <span class="s">&quot;counter&quot;</span> <span class="nv">cas-id</span> <span class="nv">value</span><span class="p">)</span>
+        <span class="p">(</span><span class="nf">Thread/sleep</span> <span class="mi">100</span><span class="p">)</span>
+        <span class="p">(</span><span class="nf">recur</span> <span class="p">(</span><span class="nb">dec </span><span class="nv">retry</span><span class="p">))))))</span>
+</pre></div>
+
+
+<p>As you can see we only try 10 times to set a new counter value and between each
+try the thread sleeps for 100 milliseconds (ideally after 1 second the loop
+will terminate). This also means during those 100ms another thread can do his
+work. Note that 100ms is quite long, espacially if the memcached server is
+on the same host.</p>
+<p>Ok we took care of race conditions, deadlocks and the active waiting, without
+introducing any explicit locks and even without using clojures ref, atom or
+agent. And it also works if there are multiple processes distributed among
+several hosts.</p>
+<p>Here a working example that uses clojures futures that try to change the
+counter at the 'same time':</p>
+<div class="highlight"><pre><span class="p">(</span><span class="nf">require</span> <span class="o">&#39;</span><span class="p">[</span><span class="nv">clojurewerkz.spyglass.client</span> <span class="ss">:as</span> <span class="nv">sc</span><span class="p">])</span>
+
+<span class="p">(</span><span class="k">def </span><span class="nv">mc-client</span> <span class="p">(</span><span class="nf">sc/bin-connection</span> <span class="s">&quot;127.0.0.1:11211&quot;</span><span class="p">))</span>
+
+<span class="p">(</span><span class="nf">sc/sets</span> <span class="nv">mc-client</span> <span class="s">&quot;counter&quot;</span> <span class="p">(</span><span class="nb">* </span><span class="mi">60</span> <span class="mi">60</span> <span class="mi">24</span><span class="p">)</span> <span class="mi">0</span><span class="p">)</span>
+
+<span class="p">(</span><span class="nb">dotimes </span><span class="p">[</span><span class="nv">i</span> <span class="mi">10</span><span class="p">]</span>
+  <span class="p">(</span><span class="nf">future</span>
+    <span class="p">(</span><span class="k">loop </span><span class="p">[</span><span class="nv">retry</span> <span class="mi">10</span><span class="p">]</span>
+      <span class="p">(</span><span class="nb">when </span><span class="p">(</span><span class="nb">pos? </span><span class="nv">retry</span><span class="p">)</span>
+        <span class="p">(</span><span class="k">let </span><span class="p">[</span><span class="nv">entry</span> <span class="p">(</span><span class="nf">sc/gets</span> <span class="nv">mc-client</span> <span class="s">&quot;counter&quot;</span><span class="p">)</span>
+              <span class="nv">value</span> <span class="p">(</span><span class="nb">inc </span><span class="p">(</span><span class="ss">:value</span> <span class="nv">entry</span><span class="p">))</span>
+              <span class="nv">cas-id</span> <span class="p">(</span><span class="ss">:cas</span> <span class="nv">entry</span><span class="p">)]</span>
+          <span class="p">(</span><span class="nb">when-not </span><span class="o">@</span><span class="p">(</span><span class="nf">sc/cas</span> <span class="nv">mc-client</span> <span class="s">&quot;counter&quot;</span> <span class="nv">cas-id</span> <span class="nv">value</span><span class="p">)</span>
+            <span class="p">(</span><span class="nf">Thread/sleep</span> <span class="mi">100</span><span class="p">)</span>
+            <span class="p">(</span><span class="nf">recur</span> <span class="p">(</span><span class="nb">dec </span><span class="nv">retry</span><span class="p">)))))</span>
+      <span class="p">(</span><span class="nb">println </span><span class="s">&quot;Failed to update counter&quot;</span><span class="p">))))</span>
+
+<span class="c1">; Returns 10 (ideally :)), otherwise you should see &quot;Failed to update counter&quot;</span>
+<span class="p">(</span><span class="nf">sc/get</span> <span class="nv">mc-client</span> <span class="s">&quot;counter&quot;</span><span class="p">)</span>
+</pre></div>
+
+
+<p>Kind regards,
+namra</p>
+            </div>
+            <!-- /.entry-content -->
+        </article>
+    </section>
+
+        </div>
+        <div class="col-sm-3 well well-sm" id="sidebar">
+
+<aside>
+    <section>
+        <ul class="list-group list-group-flush">
+
+
+
+                <li class="list-group-item"><a href="/"><h4><i class="fa fa-tags fa-lg"></i><span class="icon-label">Tags</span></h4></a>
+                    <ul class="list-group " id="tags">
+                        <li class="list-group-item tag-1">
+                            <a href="/tag/howto.html">
+                                howto
+                            </a>
+                        </li>
+                        <li class="list-group-item tag-1">
+                            <a href="/tag/administration.html">
+                                administration
+                            </a>
+                        </li>
+                        <li class="list-group-item tag-1">
+                            <a href="/tag/linux.html">
+                                linux
+                            </a>
+                        </li>
+                        <li class="list-group-item tag-4">
+                            <a href="/tag/timeseries.html">
+                                timeseries
+                            </a>
+                        </li>
+                        <li class="list-group-item tag-4">
+                            <a href="/tag/news.html">
+                                news
+                            </a>
+                        </li>
+                        <li class="list-group-item tag-4">
+                            <a href="/tag/database.html">
+                                database
+                            </a>
+                        </li>
+                        <li class="list-group-item tag-4">
+                            <a href="/tag/ssl.html">
+                                ssl
+                            </a>
+                        </li>
+                        <li class="list-group-item tag-4">
+                            <a href="/tag/clojure.html">
+                                clojure
+                            </a>
+                        </li>
+                        <li class="list-group-item tag-4">
+                            <a href="/tag/rest.html">
+                                rest
+                            </a>
+                        </li>
+                        <li class="list-group-item tag-4">
+                            <a href="/tag/memcached.html">
+                                memcached
+                            </a>
+                        </li>
+                        <li class="list-group-item tag-4">
+                            <a href="/tag/web.html">
+                                web
+                            </a>
+                        </li>
+                        <li class="list-group-item tag-4">
+                            <a href="/tag/influxdb.html">
+                                influxdb
+                            </a>
+                        </li>
+                        <li class="list-group-item tag-4">
+                            <a href="/tag/distributed.html">
+                                distributed
+                            </a>
+                        </li>
+                        <li class="list-group-item tag-4">
+                            <a href="/tag/programming.html">
+                                programming
+                            </a>
+                        </li>
+                        <li class="list-group-item tag-4">
+                            <a href="/tag/soa.html">
+                                soa
+                            </a>
+                        </li>
+                        <li class="list-group-item tag-4">
+                            <a href="/tag/automation.html">
+                                automation
+                            </a>
+                        </li>
+                        <li class="list-group-item tag-4">
+                            <a href="/tag/api.html">
+                                api
+                            </a>
+                        </li>
+                        <li class="list-group-item tag-4">
+                            <a href="/tag/cfe3.html">
+                                cfe3
+                            </a>
+                        </li>
+                    </ul>
+                </li>    
+
+
+    <li class="list-group-item"><h4><i class="fa fa-external-link-square fa-lg"></i><span class="icon-label">Links</span></h4>
+      <ul class="list-group" id="links">
+        <li class="list-group-item">
+            <a href="https://internetz.me" target="_blank">
+                internetz.me
+            </a>
+        </li>
+        <li class="list-group-item">
+            <a href="http://blog.internetz.me" target="_blank">
+                blog.internetz.me
+            </a>
+        </li>
+        <li class="list-group-item">
+            <a href="http://getpelican.com/" target="_blank">
+                Pelican
+            </a>
+        </li>
+      </ul>
+    </li>
+
+        </ul>
+    </section>
+
+</aside>        </div>
+    </div>
+</div>
+<footer>
+   <div class="container">
+      <hr>
+      <div class="row">
+         <div class="col-xs-10">&copy; 2014 namra
+            &middot; Powered by <a href="https://github.com/DandyDev/pelican-bootstrap3" target="_blank">pelican-bootstrap3</a>,
+            <a href="http://docs.getpelican.com/" target="_blank">Pelican</a>,
+            <a href="http://getbootstrap.com" target="_blank">Bootstrap</a>         </div>
+         <div class="col-xs-2"><p class="pull-right"><i class="fa fa-arrow-up"></i> <a href="#">Back to top</a></p></div>
+      </div>
+   </div>
+</footer>
+<script src="/theme/js/jquery.min.js"></script>
+
+<!-- Include all compiled plugins (below), or include individual files as needed -->
+<script src="/theme/js/bootstrap.min.js"></script>
+
+<!-- Enable responsive features in IE8 with Respond.js (https://github.com/scottjehl/Respond) -->
+<script src="/theme/js/respond.min.js"></script>
+
+</body>
+</html>
