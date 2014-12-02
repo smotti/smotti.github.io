@@ -148,7 +148,6 @@ problems.</p>
   <span class="p">(</span><span class="k">let </span><span class="p">[</span><span class="nv">entry</span> <span class="p">(</span><span class="nf">sc/gets</span> <span class="nv">mc-client</span> <span class="s">&quot;counter&quot;</span><span class="p">)</span>
         <span class="nv">value</span> <span class="p">(</span><span class="nb">inc </span><span class="p">(</span><span class="ss">:value</span> <span class="nv">entry</span><span class="p">))</span>
         <span class="nv">cas-id</span> <span class="p">(</span><span class="ss">:cas</span> <span class="nv">entry</span><span class="p">)]</span>
-    <span class="c1">; You might perform some work here to calculate the new value</span>
     <span class="p">(</span><span class="nb">when-not </span><span class="o">@</span><span class="p">(</span><span class="nf">sc/cas</span> <span class="nv">mc-client</span> <span class="s">&quot;counter&quot;</span> <span class="nv">cas-id</span> <span class="nv">value</span><span class="p">)</span>
       <span class="p">(</span><span class="nf">recur</span><span class="p">))))</span>
 </pre></div>
@@ -185,7 +184,6 @@ a specified amount and sleep a little bit during each retry:</p>
     <span class="p">(</span><span class="k">let </span><span class="p">[</span><span class="nv">entry</span> <span class="p">(</span><span class="nf">sc/gets</span> <span class="nv">mc-client</span> <span class="s">&quot;counter&quot;</span><span class="p">)</span>
           <span class="nv">value</span> <span class="p">(</span><span class="nb">inc </span><span class="p">(</span><span class="ss">:value</span> <span class="nv">entry</span><span class="p">))</span>
           <span class="nv">cas-id</span> <span class="p">(</span><span class="ss">:cas</span> <span class="nv">entry</span><span class="p">)]</span>
-      <span class="c1">; You might perform some work here to calculate the new value</span>
       <span class="p">(</span><span class="nb">when-not </span><span class="o">@</span><span class="p">(</span><span class="nf">sc/cas</span> <span class="nv">mc-client</span> <span class="s">&quot;counter&quot;</span> <span class="nv">cas-id</span> <span class="nv">value</span><span class="p">)</span>
         <span class="p">(</span><span class="nf">Thread/sleep</span> <span class="mi">100</span><span class="p">)</span>
         <span class="p">(</span><span class="nf">recur</span> <span class="p">(</span><span class="nb">dec </span><span class="nv">retry</span><span class="p">))))))</span>
@@ -245,6 +243,11 @@ namra</p>
                 <li class="list-group-item"><a href="/"><h4><i class="fa fa-tags fa-lg"></i><span class="icon-label">Tags</span></h4></a>
                     <ul class="list-group " id="tags">
                         <li class="list-group-item tag-1">
+                            <a href="/tag/linux.html">
+                                linux
+                            </a>
+                        </li>
+                        <li class="list-group-item tag-1">
                             <a href="/tag/howto.html">
                                 howto
                             </a>
@@ -254,44 +257,9 @@ namra</p>
                                 administration
                             </a>
                         </li>
-                        <li class="list-group-item tag-1">
-                            <a href="/tag/linux.html">
-                                linux
-                            </a>
-                        </li>
                         <li class="list-group-item tag-4">
-                            <a href="/tag/timeseries.html">
-                                timeseries
-                            </a>
-                        </li>
-                        <li class="list-group-item tag-4">
-                            <a href="/tag/news.html">
-                                news
-                            </a>
-                        </li>
-                        <li class="list-group-item tag-4">
-                            <a href="/tag/database.html">
-                                database
-                            </a>
-                        </li>
-                        <li class="list-group-item tag-4">
-                            <a href="/tag/ssl.html">
-                                ssl
-                            </a>
-                        </li>
-                        <li class="list-group-item tag-4">
-                            <a href="/tag/clojure.html">
-                                clojure
-                            </a>
-                        </li>
-                        <li class="list-group-item tag-4">
-                            <a href="/tag/rest.html">
-                                rest
-                            </a>
-                        </li>
-                        <li class="list-group-item tag-4">
-                            <a href="/tag/memcached.html">
-                                memcached
+                            <a href="/tag/api.html">
+                                api
                             </a>
                         </li>
                         <li class="list-group-item tag-4">
@@ -300,23 +268,13 @@ namra</p>
                             </a>
                         </li>
                         <li class="list-group-item tag-4">
-                            <a href="/tag/influxdb.html">
-                                influxdb
-                            </a>
-                        </li>
-                        <li class="list-group-item tag-4">
-                            <a href="/tag/distributed.html">
-                                distributed
-                            </a>
-                        </li>
-                        <li class="list-group-item tag-4">
                             <a href="/tag/programming.html">
                                 programming
                             </a>
                         </li>
                         <li class="list-group-item tag-4">
-                            <a href="/tag/soa.html">
-                                soa
+                            <a href="/tag/ssl.html">
+                                ssl
                             </a>
                         </li>
                         <li class="list-group-item tag-4">
@@ -325,13 +283,53 @@ namra</p>
                             </a>
                         </li>
                         <li class="list-group-item tag-4">
-                            <a href="/tag/api.html">
-                                api
+                            <a href="/tag/news.html">
+                                news
+                            </a>
+                        </li>
+                        <li class="list-group-item tag-4">
+                            <a href="/tag/memcached.html">
+                                memcached
+                            </a>
+                        </li>
+                        <li class="list-group-item tag-4">
+                            <a href="/tag/rest.html">
+                                rest
+                            </a>
+                        </li>
+                        <li class="list-group-item tag-4">
+                            <a href="/tag/timeseries.html">
+                                timeseries
+                            </a>
+                        </li>
+                        <li class="list-group-item tag-4">
+                            <a href="/tag/distributed.html">
+                                distributed
                             </a>
                         </li>
                         <li class="list-group-item tag-4">
                             <a href="/tag/cfe3.html">
                                 cfe3
+                            </a>
+                        </li>
+                        <li class="list-group-item tag-4">
+                            <a href="/tag/influxdb.html">
+                                influxdb
+                            </a>
+                        </li>
+                        <li class="list-group-item tag-4">
+                            <a href="/tag/database.html">
+                                database
+                            </a>
+                        </li>
+                        <li class="list-group-item tag-4">
+                            <a href="/tag/clojure.html">
+                                clojure
+                            </a>
+                        </li>
+                        <li class="list-group-item tag-4">
+                            <a href="/tag/soa.html">
+                                soa
                             </a>
                         </li>
                     </ul>
