@@ -129,11 +129,11 @@ functions and a global lock within memcached, which is handled via the add and
 delete operations, that require quite some server roundtrips.
 Thus I wanted to improve things within the Clojure implementation. It should be
 cleaner, proof more efficient, idomatic and of course also should take good
-care of the above mentions criterias (e.g. deadlocks, ...).</p>
+care of the above mentioned criterias (e.g. deadlocks, ...).</p>
 <p>A visit to the #clojure channel on freenode irc led me to the memcached CAS
 operation and to
 <a href="http://neopythonic.blogspot.tw/2011/08/compare-and-set-in-memcache.html">this</a>
-blog post von Guido about CAS and with a possible solution to the above mentioned
+blog post from Guido about CAS and with a possible solution to the above mentioned
 problems.</p>
 <p>To interact with a memcached server we are going to use
 <a href="https://github.com/clojurewerkz/spyglass">spyglass</a>.</p>
@@ -148,7 +148,7 @@ problems.</p>
   <span class="p">(</span><span class="k">let </span><span class="p">[</span><span class="nv">entry</span> <span class="p">(</span><span class="nf">sc/gets</span> <span class="nv">mc-client</span> <span class="s">&quot;counter&quot;</span><span class="p">)</span>
         <span class="nv">value</span> <span class="p">(</span><span class="nb">inc </span><span class="p">(</span><span class="ss">:value</span> <span class="nv">entry</span><span class="p">))</span>
         <span class="nv">cas-id</span> <span class="p">(</span><span class="ss">:cas</span> <span class="nv">entry</span><span class="p">)]</span>
-    <span class="p">(</span><span class="nb">when-not </span><span class="o">@</span><span class="p">(</span><span class="nf">sc/cas</span> <span class="nv">mc-client</span> <span class="s">&quot;counter&quot;</span> <span class="nv">cas-id</span> <span class="nv">value</span><span class="p">)</span>
+    <span class="p">(</span><span class="nb">when-not </span><span class="p">(</span><span class="nb">= </span><span class="ss">:ok</span> <span class="p">(</span><span class="nf">sc/cas</span> <span class="nv">mc-client</span> <span class="s">&quot;counter&quot;</span> <span class="nv">cas-id</span> <span class="nv">value</span><span class="p">))</span>
       <span class="p">(</span><span class="nf">recur</span><span class="p">))))</span>
 </pre></div>
 
@@ -158,12 +158,12 @@ Then we establish a connection (using the binary protocol) to a memcached host,
 in this case it's on the localhost. After that we initialize a counter with
 0 in memcached.
 Within the loop with use the gets operation to fetch the counters value and the
-cas-id. The cas-id is used by memcached internaly to track changes on records.
+cas-id. The cas-id is used by memcached internally to track changes on records.
 This means if a record changes its cas-id changes too. This fact is used by the
 cas operation, to which you provide the cas-id, which then is compared by
 memcached to the current cas-id refered to by the given key. If they match, the
-record is updated and true is returned or else nothing is done and false is
-returned.
+record is updated and :ok is returned or else nothing is done and :exists is
+returned (Note those keywords are returned by the sc/cas fn).
 Ok so we get the value and cas-id refered to by the key counter, define a local
 symbol for the value (incrementing the old value by one) and for the cas-id.
 Then we try to set the new counter value by using the cas operation. If it
@@ -184,7 +184,7 @@ a specified amount and sleep a little bit during each retry:</p>
     <span class="p">(</span><span class="k">let </span><span class="p">[</span><span class="nv">entry</span> <span class="p">(</span><span class="nf">sc/gets</span> <span class="nv">mc-client</span> <span class="s">&quot;counter&quot;</span><span class="p">)</span>
           <span class="nv">value</span> <span class="p">(</span><span class="nb">inc </span><span class="p">(</span><span class="ss">:value</span> <span class="nv">entry</span><span class="p">))</span>
           <span class="nv">cas-id</span> <span class="p">(</span><span class="ss">:cas</span> <span class="nv">entry</span><span class="p">)]</span>
-      <span class="p">(</span><span class="nb">when-not </span><span class="o">@</span><span class="p">(</span><span class="nf">sc/cas</span> <span class="nv">mc-client</span> <span class="s">&quot;counter&quot;</span> <span class="nv">cas-id</span> <span class="nv">value</span><span class="p">)</span>
+      <span class="p">(</span><span class="nb">when-not </span><span class="p">(</span><span class="nb">= </span><span class="ss">:ok</span> <span class="p">(</span><span class="nf">sc/cas</span> <span class="nv">mc-client</span> <span class="s">&quot;counter&quot;</span> <span class="nv">cas-id</span> <span class="nv">value</span><span class="p">))</span>
         <span class="p">(</span><span class="nf">Thread/sleep</span> <span class="mi">100</span><span class="p">)</span>
         <span class="p">(</span><span class="nf">recur</span> <span class="p">(</span><span class="nb">dec </span><span class="nv">retry</span><span class="p">))))))</span>
 </pre></div>
@@ -217,7 +217,7 @@ counter at the 'same time':</p>
                <span class="p">(</span><span class="k">let </span><span class="p">[</span><span class="nv">entry</span> <span class="p">(</span><span class="nf">sc/gets</span> <span class="nv">mc-client</span> <span class="s">&quot;counter&quot;</span><span class="p">)</span>
                      <span class="nv">value</span> <span class="p">(</span><span class="nb">inc </span><span class="p">(</span><span class="ss">:value</span> <span class="nv">entry</span><span class="p">))</span>
                      <span class="nv">cas-id</span> <span class="p">(</span><span class="ss">:cas</span> <span class="nv">entry</span><span class="p">)]</span>
-                 <span class="p">(</span><span class="nb">when-not </span><span class="o">@</span><span class="p">(</span><span class="nf">sc/cas</span> <span class="nv">mc-client</span> <span class="s">&quot;counter&quot;</span> <span class="nv">cas-id</span> <span class="nv">value</span><span class="p">)</span>
+                 <span class="p">(</span><span class="nb">when-not </span><span class="p">(</span><span class="nb">= </span><span class="ss">:ok</span> <span class="p">(</span><span class="nf">sc/cas</span> <span class="nv">mc-client</span> <span class="s">&quot;counter&quot;</span> <span class="nv">cas-id</span> <span class="nv">value</span><span class="p">))</span>
                    <span class="p">(</span><span class="nf">Thread/sleep</span> <span class="mi">100</span><span class="p">)</span>
                    <span class="p">(</span><span class="nf">recur</span> <span class="p">(</span><span class="nb">dec </span><span class="nv">retry</span><span class="p">)))))))))</span>
 
@@ -245,8 +245,8 @@ namra</p>
                 <li class="list-group-item"><a href="/"><h4><i class="fa fa-tags fa-lg"></i><span class="icon-label">Tags</span></h4></a>
                     <ul class="list-group " id="tags">
                         <li class="list-group-item tag-1">
-                            <a href="/tag/howto.html">
-                                howto
+                            <a href="/tag/administration.html">
+                                administration
                             </a>
                         </li>
                         <li class="list-group-item tag-1">
@@ -255,23 +255,8 @@ namra</p>
                             </a>
                         </li>
                         <li class="list-group-item tag-1">
-                            <a href="/tag/administration.html">
-                                administration
-                            </a>
-                        </li>
-                        <li class="list-group-item tag-4">
-                            <a href="/tag/ssl.html">
-                                ssl
-                            </a>
-                        </li>
-                        <li class="list-group-item tag-4">
-                            <a href="/tag/influxdb.html">
-                                influxdb
-                            </a>
-                        </li>
-                        <li class="list-group-item tag-4">
-                            <a href="/tag/news.html">
-                                news
+                            <a href="/tag/howto.html">
+                                howto
                             </a>
                         </li>
                         <li class="list-group-item tag-4">
@@ -280,18 +265,13 @@ namra</p>
                             </a>
                         </li>
                         <li class="list-group-item tag-4">
-                            <a href="/tag/clojure.html">
-                                clojure
+                            <a href="/tag/api.html">
+                                api
                             </a>
                         </li>
                         <li class="list-group-item tag-4">
-                            <a href="/tag/programming.html">
-                                programming
-                            </a>
-                        </li>
-                        <li class="list-group-item tag-4">
-                            <a href="/tag/cfe3.html">
-                                cfe3
+                            <a href="/tag/influxdb.html">
+                                influxdb
                             </a>
                         </li>
                         <li class="list-group-item tag-4">
@@ -300,8 +280,8 @@ namra</p>
                             </a>
                         </li>
                         <li class="list-group-item tag-4">
-                            <a href="/tag/automation.html">
-                                automation
+                            <a href="/tag/web.html">
+                                web
                             </a>
                         </li>
                         <li class="list-group-item tag-4">
@@ -310,18 +290,23 @@ namra</p>
                             </a>
                         </li>
                         <li class="list-group-item tag-4">
-                            <a href="/tag/api.html">
-                                api
+                            <a href="/tag/database.html">
+                                database
                             </a>
                         </li>
                         <li class="list-group-item tag-4">
-                            <a href="/tag/web.html">
-                                web
+                            <a href="/tag/clojure.html">
+                                clojure
                             </a>
                         </li>
                         <li class="list-group-item tag-4">
-                            <a href="/tag/timeseries.html">
-                                timeseries
+                            <a href="/tag/ssl.html">
+                                ssl
+                            </a>
+                        </li>
+                        <li class="list-group-item tag-4">
+                            <a href="/tag/automation.html">
+                                automation
                             </a>
                         </li>
                         <li class="list-group-item tag-4">
@@ -330,8 +315,23 @@ namra</p>
                             </a>
                         </li>
                         <li class="list-group-item tag-4">
-                            <a href="/tag/database.html">
-                                database
+                            <a href="/tag/programming.html">
+                                programming
+                            </a>
+                        </li>
+                        <li class="list-group-item tag-4">
+                            <a href="/tag/news.html">
+                                news
+                            </a>
+                        </li>
+                        <li class="list-group-item tag-4">
+                            <a href="/tag/cfe3.html">
+                                cfe3
+                            </a>
+                        </li>
+                        <li class="list-group-item tag-4">
+                            <a href="/tag/timeseries.html">
+                                timeseries
                             </a>
                         </li>
                     </ul>
